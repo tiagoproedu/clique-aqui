@@ -63,7 +63,7 @@ const Index = () => {
           <div className="mb-4">
             <h1 className="text-4xl md:text-5xl font-bold text-festa-blue mb-4 relative">
               <span className="absolute -left-8 top-0 text-3xl text-festa-gold">✦</span>
-              Festa de Aniversário
+              Aniversário do Tiago
               <span className="absolute -right-8 top-0 text-3xl text-festa-gold">✦</span>
             </h1>
             <p className="text-xl md:text-2xl text-festa-dark/80 font-light">
@@ -104,8 +104,8 @@ const Index = () => {
           <div className="mt-8 mb-16">
             <div className="h-0.5 w-16 bg-festa-gold mx-auto my-8" />
             <p className="text-lg text-gray-700 max-w-2xl mx-auto leading-relaxed">
-              É com muita alegria que convido você para celebrar comigo este momento especial. 
-              Sua presença é o melhor presente que posso receber!
+               Venho lhe convidar para o meu aniversário, rodiziozin de tudo que tiver direito e é para sair passando mal, conto com a sua presença,
+              se não for, por favor avisar para que eu já possa lhe remover da minha vida(brincadeira rs).
             </p>
           </div>
         </div>
