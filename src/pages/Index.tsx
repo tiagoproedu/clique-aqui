@@ -130,7 +130,7 @@ const Index = () => {
         <footer className="text-center mt-16 text-sm text-gray-500">
           <p>© 2025 - Todos os direitos reservados</p>
           <p className="mt-1">
-            Contato: <a href="mailto:exemplo@email.com" className="underline hover:text-festa-blue">exemplo@email.com</a>
+            Contato: <a href="https://api.whatsapp.com/send/?phone=5585988241771&text&type=phone_number&app_absent=0" className="underline hover:text-festa-blue">Whatsapp</a>
           </p>
         </footer>
       </div>
