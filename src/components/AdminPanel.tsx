@@ -125,9 +125,6 @@ export function AdminPanel() {
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAuth()}
                 />
-                <p className="text-xs text-gray-500">
-                  Dica: A senha é "festa2025"
-                </p>
               </div>
             </div>
             <DialogFooter>
