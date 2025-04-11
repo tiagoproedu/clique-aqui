@@ -15,27 +15,19 @@ export function RSVPForm() {
   const [status, setStatus] = useState<RSVPStatus>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("");
   const { toast } = useToast();
 
-  useEffect(() => {
-    const savedWebhookUrl = localStorage.getItem("webhookUrl");
-    if (savedWebhookUrl) {
-      setWebhookUrl(savedWebhookUrl);
-    }
-
-    const handleWebhookUpdate = (event: CustomEvent) => {
-      if (event.detail) {
-        setWebhookUrl(event.detail);
-      }
-    };
-
-    window.addEventListener('webhookUpdated', handleWebhookUpdate as EventListener);
-
-    return () => {
-      window.removeEventListener('webhookUpdated', handleWebhookUpdate as EventListener);
-    };
-  }, []);
+  const redirectToWhatsApp = (message: string) => {
+    // Número de WhatsApp conforme mostrado no footer
+    const phoneNumber = "5585988241771";
+    // Codifica a mensagem para URL
+    const encodedMessage = encodeURIComponent(message);
+    // Constrói a URL do WhatsApp
+    const whatsappUrl = `https://api.whatsapp.com/send/?phone=${phoneNumber}&text=${encodedMessage}&type=phone_number&app_absent=0`;
+    
+    // Redireciona para o WhatsApp
+    window.open(whatsappUrl, '_blank');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,20 +36,6 @@ export function RSVPForm() {
         variant: "destructive",
         title: "Ops! Algo está faltando",
         description: "Por favor, preencha todos os campos para confirmar sua presença."
-      });
-      return;
-    }
-
-    const latestWebhookUrl = localStorage.getItem("webhookUrl");
-    if (latestWebhookUrl) {
-      setWebhookUrl(latestWebhookUrl);
-    }
-
-    if (!webhookUrl || webhookUrl.trim() === "") {
-      toast({
-        variant: "destructive",
-        title: "Configuração pendente",
-        description: "O administrador precisa configurar a URL do webhook para receber as confirmações."
       });
       return;
     }
@@ -72,19 +50,7 @@ export function RSVPForm() {
     };
     
     try {
-      console.log("Enviando dados para webhook:", webhookUrl);
-      
-      await fetch(webhookUrl.trim(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(rsvpData),
-        mode: "no-cors"
-      });
-
-      console.log("RSVP enviado:", rsvpData);
-      
+      // Salvar dados localmente
       const existingDataStr = localStorage.getItem("rsvpList");
       let existingData = [];
       
@@ -113,8 +79,18 @@ export function RSVPForm() {
           : "Agradecemos sua resposta. Sentiremos sua falta!",
         className: status === "sim" ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200",
       });
+
+      // Redirecionar para o WhatsApp com mensagem personalizada
+      if (status === "sim") {
+        const message = `Olá, aqui é ${nome}! Estou confirmando minha presença no aniversário do Tiago. Mal posso esperar para celebrar juntos!`;
+        redirectToWhatsApp(message);
+      } else {
+        const message = `Olá, aqui é ${nome}. Infelizmente não poderei comparecer ao aniversário do Tiago. Desejo uma festa incrível!`;
+        redirectToWhatsApp(message);
+      }
+      
     } catch (error) {
-      console.error("Erro ao enviar RSVP:", error);
+      console.error("Erro ao processar RSVP:", error);
       toast({
         variant: "destructive",
         title: "Erro ao enviar confirmação",
