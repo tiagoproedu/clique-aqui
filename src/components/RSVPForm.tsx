@@ -16,9 +16,10 @@ export function RSVPForm() {
   const [status, setStatus] = useState<RSVPStatus>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome || !email || !status) {
       toast({
@@ -31,28 +32,49 @@ export function RSVPForm() {
 
     setIsSubmitting(true);
 
-    // Simular envio ao servidor
-    setTimeout(() => {
-      // Normalmente enviaria para um servidor, mas neste exemplo
-      // apenas armazenamos localmente e mostramos confirmação
-      const rsvpData = {
-        nome,
-        email,
-        status,
-        timestamp: new Date().toISOString()
-      };
+    // Criar objeto com os dados do formulário
+    const rsvpData = {
+      nome,
+      email,
+      status,
+      timestamp: new Date().toISOString()
+    };
+    
+    try {
+      // Enviar dados para o webhook (Zapier ou similar)
+      let url = webhookUrl;
       
-      // Corrigindo o armazenamento no localStorage
+      // Se não houver URL de webhook configurada, use a URL padrão (substitua pela sua URL do Zapier)
+      if (!url) {
+        // Caso ainda não tenha configurado um webhook, mostre um erro
+        toast({
+          variant: "destructive",
+          title: "Configuração pendente",
+          description: "O administrador precisa configurar a URL do webhook para receber as confirmações."
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(rsvpData),
+        mode: "no-cors" // Para evitar problemas de CORS com webhooks
+      });
+
+      console.log("RSVP enviado:", rsvpData);
+      
+      // Armazenamos localmente também como backup
       const existingDataStr = localStorage.getItem("rsvpList");
       let existingData = [];
       
       try {
-        // Tentar analisar os dados existentes ou criar um novo array
         if (existingDataStr) {
           existingData = JSON.parse(existingDataStr);
-          // Verificar se é realmente um array
           if (!Array.isArray(existingData)) {
-            console.error("rsvpList não é um array, criando novo array");
             existingData = [];
           }
         }
@@ -61,14 +83,8 @@ export function RSVPForm() {
         existingData = [];
       }
       
-      // Adicionar a nova entrada
       existingData.push(rsvpData);
-      
-      // Salvar de volta no localStorage
       localStorage.setItem("rsvpList", JSON.stringify(existingData));
-      
-      console.log("RSVP salvo:", rsvpData);
-      console.log("Lista atual:", JSON.stringify(existingData));
       
       setIsSubmitting(false);
       setSubmitted(true);
@@ -80,7 +96,15 @@ export function RSVPForm() {
           : "Agradecemos sua resposta. Sentiremos sua falta!",
         className: status === "sim" ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200",
       });
-    }, 1500);
+    } catch (error) {
+      console.error("Erro ao enviar RSVP:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar confirmação",
+        description: "Houve um problema ao enviar sua confirmação. Por favor, tente novamente."
+      });
+      setIsSubmitting(false);
+    }
   };
 
   if (submitted) {

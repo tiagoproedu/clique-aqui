@@ -1,202 +1,258 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Key, Clipboard, RefreshCw } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
 
-interface RSVPEntry {
+import { useState, useEffect } from "react";
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetDescription, 
+  SheetHeader, 
+  SheetTitle 
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { 
+  Table, 
+  TableBody, 
+  TableCaption, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Download, RefreshCw, Settings, Users } from "lucide-react";
+
+type RSVPEntry = {
   nome: string;
   email: string;
-  status: "sim" | "nao";
+  status: string;
   timestamp: string;
-}
+};
 
 export function AdminPanel() {
+  const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
-  const [authenticated, setAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [rsvpList, setRsvpList] = useState<RSVPEntry[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [isWebhookDialogOpen, setIsWebhookDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const loadRsvpData = () => {
+  const correctPassword = "festa2025";
+
+  useEffect(() => {
+    // Carregar a URL do webhook do localStorage ao iniciar
+    const savedWebhookUrl = localStorage.getItem("webhookUrl");
+    if (savedWebhookUrl) {
+      setWebhookUrl(savedWebhookUrl);
+    }
+  }, []);
+
+  const loadRSVPData = () => {
+    setIsLoading(true);
     try {
       const data = localStorage.getItem("rsvpList");
       if (data) {
         const parsedData = JSON.parse(data);
         if (Array.isArray(parsedData)) {
           setRsvpList(parsedData);
-          console.log("Dados RSVP carregados:", parsedData);
         } else {
-          console.error("Dados RSVP inválidos (não é um array):", parsedData);
           setRsvpList([]);
+          toast({
+            variant: "destructive",
+            title: "Erro no formato dos dados",
+            description: "Os dados salvos não estão no formato esperado."
+          });
         }
       } else {
-        console.log("Nenhum dado RSVP encontrado no localStorage");
         setRsvpList([]);
       }
     } catch (error) {
-      console.error("Erro ao carregar dados RSVP:", error);
-      setRsvpList([]);
+      console.error("Erro ao carregar dados:", error);
       toast({
         variant: "destructive",
         title: "Erro ao carregar dados",
-        description: "Ocorreu um erro ao carregar a lista de convidados."
+        description: "Não foi possível carregar os dados das confirmações."
       });
+      setRsvpList([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (authenticated && isDialogOpen) {
-      loadRsvpData();
-    }
-  }, [authenticated, isDialogOpen]);
-
-  const handleAuth = () => {
-    if (password === "festa2025") {
-      setAuthenticated(true);
-      loadRsvpData();
+  const handleAuthenticate = () => {
+    if (password === correctPassword) {
+      setIsAuthenticated(true);
+      loadRSVPData();
     } else {
       toast({
         variant: "destructive",
         title: "Senha incorreta",
-        description: "Por favor, tente novamente com a senha correta."
+        description: "A senha fornecida está incorreta. Tente novamente."
       });
     }
   };
 
-  const handleRefresh = () => {
-    loadRsvpData();
-    toast({
-      title: "Lista atualizada",
-      description: "A lista de convidados foi atualizada."
-    });
-  };
+  const handleExportCSV = () => {
+    if (rsvpList.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Sem dados para exportar",
+        description: "Não há confirmações para exportar."
+      });
+      return;
+    }
 
-  const handleExport = () => {
-    const confirmed = window.confirm("Isso irá baixar a lista completa de convidados. Continuar?");
-    if (!confirmed) return;
-
-    const header = "Nome,Email,Resposta,Data\n";
-    const csvData = rsvpList.map(entry => {
-      const date = new Date(entry.timestamp).toLocaleDateString('pt-BR');
-      return `"${entry.nome}","${entry.email}","${entry.status === 'sim' ? 'Sim' : 'Não'}","${date}"`;
-    }).join("\n");
+    // Criar cabeçalho CSV
+    const headers = ["Nome", "Email", "Status", "Data/Hora"];
     
-    const blob = new Blob([header + csvData], { type: 'text/csv;charset=utf-8;' });
+    // Criar linhas CSV
+    const rows = rsvpList.map(entry => [
+      entry.nome,
+      entry.email,
+      entry.status === "sim" ? "Confirmado" : "Não comparecerá",
+      new Date(entry.timestamp).toLocaleString('pt-BR')
+    ]);
+    
+    // Juntar tudo
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.join(","))
+    ].join("\n");
+    
+    // Criar blob e link para download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    
     link.setAttribute('href', url);
-    link.setAttribute('download', `lista_convidados_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    
+    link.setAttribute('download', `convidados_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
     toast({
-      title: "Lista exportada",
-      description: "A lista de convidados foi exportada com sucesso."
+      title: "Exportação concluída",
+      description: "Os dados foram exportados com sucesso."
     });
   };
 
-  const copyToClipboard = () => {
-    const simCount = rsvpList.filter(entry => entry.status === "sim").length;
-    const naoCount = rsvpList.filter(entry => entry.status === "nao").length;
+  const handleSaveWebhook = () => {
+    // Salvar a URL do webhook no localStorage
+    localStorage.setItem("webhookUrl", webhookUrl);
     
-    const text = `
-    Resumo de Confirmações:
-    
-    Total de respostas: ${rsvpList.length}
-    Confirmados: ${simCount}
-    Não irão comparecer: ${naoCount}
-    
-    Lista de Confirmados:
-    ${rsvpList.filter(entry => entry.status === "sim").map(entry => `- ${entry.nome} (${entry.email})`).join('\n')}
-    `;
-    
-    navigator.clipboard.writeText(text).then(() => {
-      toast({
-        title: "Copiado para a área de transferência",
-        description: "O resumo foi copiado com sucesso."
-      });
+    toast({
+      title: "Configuração salva",
+      description: "A URL do webhook foi configurada com sucesso."
     });
+    
+    setIsWebhookDialogOpen(false);
   };
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="fixed bottom-4 right-4 opacity-50 hover:opacity-100">
-          <Key className="h-4 w-4 mr-2" />
-          Admin
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Painel de Administração</DialogTitle>
-          <DialogDescription>
-            Acesse os dados de confirmações para o evento.
-          </DialogDescription>
-        </DialogHeader>
-        
-        {!authenticated ? (
-          <>
-            <div className="grid gap-4 py-4">
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-4 right-4 w-12 h-12 rounded-full bg-festa-blue text-white flex items-center justify-center shadow-lg hover:bg-festa-lightblue transition-colors"
+        aria-label="Admin Panel"
+      >
+        <Users size={24} />
+      </button>
+
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Painel de Administração</SheetTitle>
+            <SheetDescription>
+              Gerencie as confirmações de presença para sua festa.
+            </SheetDescription>
+          </SheetHeader>
+
+          {!isAuthenticated ? (
+            <div className="mt-6 space-y-4">
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">
-                  Senha
-                </label>
-                <input
+                <Label htmlFor="password">Senha</Label>
+                <Input
                   id="password"
                   type="password"
-                  placeholder="Digite a senha de acesso"
-                  className="w-full p-2 border rounded"
+                  placeholder="Digite a senha de administrador"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAuth()}
                 />
+                <p className="text-xs text-gray-500">
+                  Digite a senha para acessar o painel de administração.
+                </p>
               </div>
+              <Button 
+                onClick={handleAuthenticate} 
+                className="w-full bg-festa-blue hover:bg-festa-lightblue"
+              >
+                Acessar
+              </Button>
             </div>
-            <DialogFooter>
-              <Button onClick={handleAuth}>Acessar</Button>
-            </DialogFooter>
-          </>
-        ) : (
-          <>
-            <div className="max-h-[400px] overflow-auto">
-              <div className="flex justify-between mb-4">
-                <div>
-                  <p className="text-sm font-medium">Total de respostas: {rsvpList.length}</p>
-                  <p className="text-sm text-green-600">
-                    Confirmados: {rsvpList.filter(entry => entry.status === "sim").length}
-                  </p>
-                  <p className="text-sm text-blue-600">
-                    Não irão: {rsvpList.filter(entry => entry.status === "nao").length}
-                  </p>
-                </div>
+          ) : (
+            <div className="mt-6 space-y-6">
+              <div className="flex justify-between">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={loadRSVPData}
+                  disabled={isLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                  Atualizar
+                </Button>
+                
                 <div className="space-x-2">
+                  <Dialog open={isWebhookDialogOpen} onOpenChange={setIsWebhookDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Configurar
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Configuração de Webhook</DialogTitle>
+                        <DialogDescription>
+                          Configure a URL do webhook para receber as confirmações.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="webhook-url">URL do Webhook</Label>
+                          <Input
+                            id="webhook-url"
+                            type="url"
+                            placeholder="https://hooks.zapier.com/hooks/catch/..."
+                            value={webhookUrl}
+                            onChange={(e) => setWebhookUrl(e.target.value)}
+                          />
+                          <p className="text-xs text-gray-500">
+                            Insira a URL do seu webhook Zapier ou similar para receber as confirmações por e-mail ou outro canal.
+                          </p>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button onClick={handleSaveWebhook}>Salvar</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  
                   <Button 
-                    size="sm" 
                     variant="outline" 
-                    onClick={handleRefresh}
-                    className="mr-2"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Atualizar
-                  </Button>
-                  <Button 
                     size="sm" 
-                    variant="outline" 
-                    onClick={copyToClipboard}
-                  >
-                    <Clipboard className="h-4 w-4 mr-2" />
-                    Copiar
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={handleExport}
+                    onClick={handleExportCSV}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Exportar CSV
@@ -204,48 +260,62 @@ export function AdminPanel() {
                 </div>
               </div>
               
-              {rsvpList.length > 0 ? (
-                <Table>
-                  <TableCaption>Lista de confirmações para o evento</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Resposta</TableHead>
-                      <TableHead>Data</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rsvpList.map((entry, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium">{entry.nome}</TableCell>
-                        <TableCell>{entry.email}</TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            entry.status === "sim" 
-                              ? "bg-green-100 text-green-800" 
-                              : "bg-blue-100 text-blue-800"
-                          }`}>
-                            {entry.status === "sim" ? "Sim" : "Não"}
-                          </span>
-                        </TableCell>
-                        <TableCell>{new Date(entry.timestamp).toLocaleDateString('pt-BR')}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-center py-8 text-gray-500">
-                  Nenhuma confirmação registrada ainda.
-                </p>
-              )}
+              <div>
+                <h3 className="text-sm font-medium mb-2">
+                  Lista de confirmações ({rsvpList.length})
+                </h3>
+                <ScrollArea className="h-[400px]">
+                  {rsvpList.length > 0 ? (
+                    <Table>
+                      <TableCaption>
+                        Total de convidados: {rsvpList.length} | 
+                        Confirmados: {rsvpList.filter(r => r.status === "sim").length} | 
+                        Não comparecerão: {rsvpList.filter(r => r.status === "nao").length}
+                      </TableCaption>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Data/Hora</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rsvpList.map((entry, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{entry.nome}</TableCell>
+                            <TableCell>{entry.email}</TableCell>
+                            <TableCell>
+                              <span 
+                                className={`inline-block px-2 py-1 rounded-full text-xs ${
+                                  entry.status === "sim" 
+                                    ? "bg-green-100 text-green-800" 
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {entry.status === "sim" ? "Confirmado" : "Não comparecerá"}
+                              </span>
+                            </TableCell>
+                            <TableCell>{new Date(entry.timestamp).toLocaleString('pt-BR')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      {isLoading ? (
+                        <p>Carregando confirmações...</p>
+                      ) : (
+                        <p>Nenhuma confirmação recebida ainda.</p>
+                      )}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setAuthenticated(false)}>Sair</Button>
-            </DialogFooter>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
