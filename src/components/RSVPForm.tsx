@@ -42,11 +42,33 @@ export function RSVPForm() {
         timestamp: new Date().toISOString()
       };
       
-      // Salvar no localStorage para demonstração
-      const existingData = localStorage.getItem("rsvpList");
-      const parsedData = existingData ? JSON.parse(existingData) : [];
-      parsedData.push(rsvpData);
-      localStorage.setItem("rsvpList", JSON.stringify(parsedData));
+      // Corrigindo o armazenamento no localStorage
+      const existingDataStr = localStorage.getItem("rsvpList");
+      let existingData = [];
+      
+      try {
+        // Tentar analisar os dados existentes ou criar um novo array
+        if (existingDataStr) {
+          existingData = JSON.parse(existingDataStr);
+          // Verificar se é realmente um array
+          if (!Array.isArray(existingData)) {
+            console.error("rsvpList não é um array, criando novo array");
+            existingData = [];
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao analisar os dados do localStorage:", error);
+        existingData = [];
+      }
+      
+      // Adicionar a nova entrada
+      existingData.push(rsvpData);
+      
+      // Salvar de volta no localStorage
+      localStorage.setItem("rsvpList", JSON.stringify(existingData));
+      
+      console.log("RSVP salvo:", rsvpData);
+      console.log("Lista atual:", JSON.stringify(existingData));
       
       setIsSubmitting(false);
       setSubmitted(true);

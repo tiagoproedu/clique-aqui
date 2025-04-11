@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Key, Clipboard } from "lucide-react";
+import { Download, Key, Clipboard, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 interface RSVPEntry {
@@ -17,21 +16,46 @@ export function AdminPanel() {
   const [password, setPassword] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [rsvpList, setRsvpList] = useState<RSVPEntry[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (authenticated) {
+  const loadRsvpData = () => {
+    try {
       const data = localStorage.getItem("rsvpList");
       if (data) {
-        setRsvpList(JSON.parse(data));
+        const parsedData = JSON.parse(data);
+        if (Array.isArray(parsedData)) {
+          setRsvpList(parsedData);
+          console.log("Dados RSVP carregados:", parsedData);
+        } else {
+          console.error("Dados RSVP inválidos (não é um array):", parsedData);
+          setRsvpList([]);
+        }
+      } else {
+        console.log("Nenhum dado RSVP encontrado no localStorage");
+        setRsvpList([]);
       }
+    } catch (error) {
+      console.error("Erro ao carregar dados RSVP:", error);
+      setRsvpList([]);
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar dados",
+        description: "Ocorreu um erro ao carregar a lista de convidados."
+      });
     }
-  }, [authenticated]);
+  };
+
+  useEffect(() => {
+    if (authenticated && isDialogOpen) {
+      loadRsvpData();
+    }
+  }, [authenticated, isDialogOpen]);
 
   const handleAuth = () => {
-    // Senha simples apenas para demonstração - em produção use um sistema seguro
     if (password === "festa2025") {
       setAuthenticated(true);
+      loadRsvpData();
     } else {
       toast({
         variant: "destructive",
@@ -41,11 +65,18 @@ export function AdminPanel() {
     }
   };
 
+  const handleRefresh = () => {
+    loadRsvpData();
+    toast({
+      title: "Lista atualizada",
+      description: "A lista de convidados foi atualizada."
+    });
+  };
+
   const handleExport = () => {
     const confirmed = window.confirm("Isso irá baixar a lista completa de convidados. Continuar?");
     if (!confirmed) return;
 
-    // Formatar para CSV
     const header = "Nome,Email,Resposta,Data\n";
     const csvData = rsvpList.map(entry => {
       const date = new Date(entry.timestamp).toLocaleDateString('pt-BR');
@@ -94,7 +125,7 @@ export function AdminPanel() {
   };
 
   return (
-    <Dialog>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="fixed bottom-4 right-4 opacity-50 hover:opacity-100">
           <Key className="h-4 w-4 mr-2" />
@@ -145,6 +176,15 @@ export function AdminPanel() {
                   </p>
                 </div>
                 <div className="space-x-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleRefresh}
+                    className="mr-2"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Atualizar
+                  </Button>
                   <Button 
                     size="sm" 
                     variant="outline" 
