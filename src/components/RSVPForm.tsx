@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +18,25 @@ export function RSVPForm() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const { toast } = useToast();
 
+  useEffect(() => {
+    const savedWebhookUrl = localStorage.getItem("webhookUrl");
+    if (savedWebhookUrl) {
+      setWebhookUrl(savedWebhookUrl);
+    }
+
+    const handleWebhookUpdate = (event: CustomEvent) => {
+      if (event.detail) {
+        setWebhookUrl(event.detail);
+      }
+    };
+
+    window.addEventListener('webhookUpdated', handleWebhookUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('webhookUpdated', handleWebhookUpdate as EventListener);
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome || !email || !status) {
@@ -30,9 +48,22 @@ export function RSVPForm() {
       return;
     }
 
+    const latestWebhookUrl = localStorage.getItem("webhookUrl");
+    if (latestWebhookUrl) {
+      setWebhookUrl(latestWebhookUrl);
+    }
+
+    if (!webhookUrl || webhookUrl.trim() === "") {
+      toast({
+        variant: "destructive",
+        title: "Configuração pendente",
+        description: "O administrador precisa configurar a URL do webhook para receber as confirmações."
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Criar objeto com os dados do formulário
     const rsvpData = {
       nome,
       email,
@@ -41,33 +72,19 @@ export function RSVPForm() {
     };
     
     try {
-      // Enviar dados para o webhook (Zapier ou similar)
-      let url = webhookUrl;
+      console.log("Enviando dados para webhook:", webhookUrl);
       
-      // Se não houver URL de webhook configurada, use a URL padrão (substitua pela sua URL do Zapier)
-      if (!url) {
-        // Caso ainda não tenha configurado um webhook, mostre um erro
-        toast({
-          variant: "destructive",
-          title: "Configuração pendente",
-          description: "O administrador precisa configurar a URL do webhook para receber as confirmações."
-        });
-        setIsSubmitting(false);
-        return;
-      }
-      
-      const response = await fetch(url, {
+      await fetch(webhookUrl.trim(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(rsvpData),
-        mode: "no-cors" // Para evitar problemas de CORS com webhooks
+        mode: "no-cors"
       });
 
       console.log("RSVP enviado:", rsvpData);
       
-      // Armazenamos localmente também como backup
       const existingDataStr = localStorage.getItem("rsvpList");
       let existingData = [];
       

@@ -148,8 +148,21 @@ export function AdminPanel() {
   };
 
   const handleSaveWebhook = () => {
-    // Salvar a URL do webhook no localStorage
-    localStorage.setItem("webhookUrl", webhookUrl);
+    // Validar URL
+    if (!webhookUrl || !webhookUrl.trim()) {
+      toast({
+        variant: "destructive",
+        title: "URL inválida",
+        description: "Por favor, insira uma URL válida para o webhook."
+      });
+      return;
+    }
+    
+    // Salvar a URL do webhook no localStorage e compartilhar com o formulário
+    localStorage.setItem("webhookUrl", webhookUrl.trim());
+    
+    // Evento personalizado para notificar outros componentes sobre a mudança
+    window.dispatchEvent(new CustomEvent('webhookUpdated', { detail: webhookUrl.trim() }));
     
     toast({
       title: "Configuração salva",
@@ -157,6 +170,46 @@ export function AdminPanel() {
     });
     
     setIsWebhookDialogOpen(false);
+  };
+
+  const handleTestWebhook = async () => {
+    if (!webhookUrl || !webhookUrl.trim()) {
+      toast({
+        variant: "destructive",
+        title: "URL inválida",
+        description: "Por favor, insira uma URL válida para o webhook."
+      });
+      return;
+    }
+
+    try {
+      // Enviar dados de teste para o webhook
+      await fetch(webhookUrl.trim(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        mode: "no-cors",
+        body: JSON.stringify({
+          nome: "Teste Webhook",
+          email: "teste@example.com",
+          status: "teste",
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      toast({
+        title: "Teste enviado",
+        description: "Um evento de teste foi enviado para o webhook. Verifique o Zapier para confirmar o recebimento."
+      });
+    } catch (error) {
+      console.error("Erro ao testar webhook:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro no teste",
+        description: "Não foi possível testar o webhook. Verifique a URL e tente novamente."
+      });
+    }
   };
 
   return (
@@ -243,7 +296,10 @@ export function AdminPanel() {
                           </p>
                         </div>
                       </div>
-                      <DialogFooter>
+                      <DialogFooter className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:justify-between">
+                        <Button variant="outline" onClick={handleTestWebhook}>
+                          Testar Webhook
+                        </Button>
                         <Button onClick={handleSaveWebhook}>Salvar</Button>
                       </DialogFooter>
                     </DialogContent>
